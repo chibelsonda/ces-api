@@ -5,6 +5,8 @@ using Ces.Api.Models.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -83,6 +85,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+
 // Override invalid model state globally
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -111,6 +114,23 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod());
 });
 
+// Api Versioning
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+
+    // Use URL versioning: /api/v1/...
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+});
+
+builder.Services.AddVersionedApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV"; // v1, v1.0
+    options.SubstituteApiVersionInUrl = true;
+});
+
 var app = builder.Build();
 
 // Seeder 
@@ -124,6 +144,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Swagger with API versioning support
+var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    foreach (var description in provider.ApiVersionDescriptions)
+    {
+        options.SwaggerEndpoint(
+            $"/swagger/{description.GroupName}/swagger.json",
+            description.GroupName.ToUpperInvariant()
+        );
+    }
+});
 
 app.UseMiddleware<ExceptionMiddleware>();
 

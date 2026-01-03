@@ -11,8 +11,7 @@ using System.Text;
 
 namespace Ces.Api.Controllers
 {
-    [ApiController]
-    [Route("api/auth")]
+    [ApiVersion("1.0")]
     public class AuthController : BaseApiController
     {
         private readonly UserManager<ApplicationUser> _userManager;

@@ -2,18 +2,16 @@
 
 namespace Ces.Api.Controllers
 {
-    [ApiController]
-    public class TestController : ControllerBase
+    [ApiVersion("1.0")]
+    public class TestController : BaseApiController
     {
         [HttpGet]
-        [Route("api/test")]
         public IActionResult Test()
         {
-            return Ok(new
-            {
-                message = "CES API is running successfully 🚀",
-                timestamp = DateTime.UtcNow
-            });
+            return OkResponse(
+                data: new { timestamp = DateTime.UtcNow },
+                message: "CES API is running successfully 🚀"
+            );
         }
     }
 }
