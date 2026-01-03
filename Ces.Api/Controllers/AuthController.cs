@@ -1,4 +1,5 @@
 ﻿using Ces.Api.DTOs.Auth;
+using Ces.Api.Helpers;
 using Ces.Api.Models.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -12,7 +13,7 @@ namespace Ces.Api.Controllers
 {
     [ApiController]
     [Route("api/auth")]
-    public class AuthController : ControllerBase
+    public class AuthController : BaseApiController
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IConfiguration _config;
@@ -25,9 +26,18 @@ namespace Ces.Api.Controllers
             _config = config;
         }
 
-        [HttpPost("register")]
+        [HttpPost("signup")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
+            var existingUser = await _userManager.FindByEmailAsync(request.Email);
+            if (existingUser != null)
+            {
+                return ErrorResponse(
+                    message: "Email already exists",
+                    statusCode: StatusCodes.Status409Conflict
+                );
+            }
+
             var user = new ApplicationUser
             {
                 UserName = request.Email,
@@ -37,35 +47,56 @@ namespace Ces.Api.Controllers
             var result = await _userManager.CreateAsync(user, request.Password);
 
             if (!result.Succeeded)
-                return BadRequest(result.Errors);
+            {
+                return ErrorResponse(
+                    message: "User registration failed",
+                    errors: IdentityErrorMapper.Map(result.Errors),
+                    statusCode: StatusCodes.Status400BadRequest
+                );
+            }
 
             await _userManager.AddToRoleAsync(user, "Student");
 
-            return Ok("User registered successfully");
+            return CreatedResponse(
+                data: new { user.Id, user.Email },
+                message: "User registered successfully"
+            );
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
+        public async Task<IActionResult> Login(LoginRequest request)
         {
             var user = await _userManager.FindByEmailAsync(request.Email);
 
             if (user == null)
-                return Unauthorized("Invalid credentials");
+            {
+                return ErrorResponse(
+                    message: "Invalid credentials",
+                    statusCode: StatusCodes.Status401Unauthorized
+                );
+            }
 
             var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
 
             if (!passwordValid)
-                return Unauthorized("Invalid credentials");
+            {
+                return ErrorResponse(
+                    message: "Invalid credentials",
+                    statusCode: StatusCodes.Status401Unauthorized
+                );
+            }
 
             var token = await GenerateJwtToken(user);
 
-            return Ok(new AuthResponse
+            var response = new AuthResponse
             {
                 Token = token,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(
                     int.Parse(_config["Jwt:ExpiresInMinutes"]!)
                 )
-            });
+            };
+
+            return OkResponse(response, "Login successful");
         }
 
         private async Task<string> GenerateJwtToken(ApplicationUser user)
@@ -113,8 +144,10 @@ namespace Ces.Api.Controllers
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            // JWT is stateless — logout handled client-side
-            return Ok(new { message = "Logged out" });
+            return OkResponse(
+                data: new { },
+                message: "Logged out successfully"
+            );
         }
 
     }

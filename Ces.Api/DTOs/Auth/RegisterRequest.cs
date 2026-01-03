@@ -1,8 +1,13 @@
-﻿namespace Ces.Api.DTOs.Auth
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Ces.Api.DTOs.Auth
 {
     public class RegisterRequest
     {
-        public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
+        [Required, EmailAddress]
+        public required string Email { get; set; }
+
+        [Required, MinLength(8)]
+        public required string Password { get; set; }
     }
 }

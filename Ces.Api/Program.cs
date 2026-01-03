@@ -1,7 +1,10 @@
 using Ces.Api.Data;
+using Ces.Api.Middlewares;
+using Ces.Api.Models;
 using Ces.Api.Models.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -80,6 +83,24 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// Override invalid model state globally
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(e => e.Value!.Errors.Count > 0)
+            .ToDictionary(
+                e => e.Key,
+                e => e.Value!.Errors.Select(x => x.ErrorMessage).ToArray()
+            );
+
+        var response = ApiResponse<object>.Fail("Validation failed", errors);
+
+        return new BadRequestObjectResult(response);
+    };
+});
+
 
 // CORS
 builder.Services.AddCors(options =>
@@ -103,6 +124,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseCors("AllowReact");
